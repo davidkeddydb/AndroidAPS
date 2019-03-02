@@ -1,5 +1,19 @@
 package info.nightscout.androidaps.plugins.pump.combo.ruffyscripter;
 
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+
+import org.monkey.d.ruffy.ruffy.driver.IRTHandler;
+import org.monkey.d.ruffy.ruffy.driver.IRuffyService;
+import org.monkey.d.ruffy.ruffy.driver.display.Menu;
+import org.monkey.d.ruffy.ruffy.driver.display.MenuAttribute;
+import org.monkey.d.ruffy.ruffy.driver.display.MenuType;
+import org.monkey.d.ruffy.ruffy.driver.display.menu.BolusType;
+import org.monkey.d.ruffy.ruffy.driver.display.menu.MenuTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -12,22 +26,7 @@ import android.support.annotation.Nullable;
 
 import com.google.common.base.Joiner;
 
-import org.monkey.d.ruffy.ruffy.driver.IRTHandler;
-import org.monkey.d.ruffy.ruffy.driver.IRuffyService;
-import org.monkey.d.ruffy.ruffy.driver.display.Menu;
-import org.monkey.d.ruffy.ruffy.driver.display.MenuAttribute;
-import org.monkey.d.ruffy.ruffy.driver.display.MenuType;
-import org.monkey.d.ruffy.ruffy.driver.display.menu.BolusType;
-import org.monkey.d.ruffy.ruffy.driver.display.menu.MenuTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
-
-import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.ReadQuickInfoCommand;
-import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.history.PumpHistoryRequest;
+import info.nightscout.androidaps.plugins.pump.combo.data.ComboDataUtil;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.BolusCommand;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.CancelTbrCommand;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.Command;
@@ -36,8 +35,10 @@ import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.Conf
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.ReadBasalProfileCommand;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.ReadHistoryCommand;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.ReadPumpStateCommand;
+import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.ReadQuickInfoCommand;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.SetBasalProfileCommand;
 import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.SetTbrCommand;
+import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.history.PumpHistoryRequest;
 
 /**
  * Provides scripting 'runtime' and operations. consider moving operations into a separate
@@ -45,6 +46,7 @@ import info.nightscout.androidaps.plugins.pump.combo.ruffyscripter.commands.SetT
  * operations and are cleanly separated from the thread management, connection management etc
  */
 public class RuffyScripter implements RuffyCommands {
+
     private static final Logger log = LoggerFactory.getLogger(RuffyScripter.class);
 
     private IRuffyService ruffyService;
@@ -61,6 +63,7 @@ public class RuffyScripter implements RuffyCommands {
     private final Object screenlock = new Object();
 
     private IRTHandler mHandler = new IRTHandler.Stub() {
+
         @Override
         public void log(String message) {
             if (log.isTraceEnabled()) {
@@ -68,15 +71,18 @@ public class RuffyScripter implements RuffyCommands {
             }
         }
 
+
         @Override
         public void fail(String message) {
             log.warn("Ruffy warns: " + message);
         }
 
+
         @Override
         public void requestBluetooth() {
             log.trace("Ruffy invoked requestBluetooth callback");
         }
+
 
         @Override
         public void rtStopped() {
@@ -84,18 +90,22 @@ public class RuffyScripter implements RuffyCommands {
             currentMenu = null;
         }
 
+
         @Override
         public void rtStarted() {
             log.debug("rtStarted callback invoked");
         }
 
+
         @Override
         public void rtClearDisplay() {
         }
 
+
         @Override
         public void rtUpdateDisplay(byte[] quarter, int which) {
         }
+
 
         @Override
         public void rtDisplayHandleMenu(Menu menu) {
@@ -110,6 +120,7 @@ public class RuffyScripter implements RuffyCommands {
             }
         }
 
+
         @Override
         public void rtDisplayHandleNoMenu() {
             log.warn("rtDisplayHandleNoMenu callback invoked");
@@ -117,25 +128,25 @@ public class RuffyScripter implements RuffyCommands {
         }
     };
 
+
     public RuffyScripter(Context context) {
         boolean boundSucceeded = false;
 
         try {
-            Intent intent = new Intent()
-                    .setComponent(new ComponentName(
-                            // this must be the base package of the app (check package attribute in
-                            // manifest element in the manifest file of the providing app)
-                            "org.monkey.d.ruffy.ruffy",
-                            // full path to the driver;
-                            // in the logs this service is mentioned as (note the slash)
-                            // "org.monkey.d.ruffy.ruffy/.driver.Ruffy";
-                            // org.monkey.d.ruffy.ruffy is the base package identifier
-                            // and /.driver.Ruffy the service within the package
-                            "org.monkey.d.ruffy.ruffy.driver.Ruffy"
-                    ));
+            Intent intent = new Intent().setComponent(new ComponentName(
+            // this must be the base package of the app (check package attribute in
+            // manifest element in the manifest file of the providing app)
+                "org.monkey.d.ruffy.ruffy",
+                // full path to the driver;
+                // in the logs this service is mentioned as (note the slash)
+                // "org.monkey.d.ruffy.ruffy/.driver.Ruffy";
+                // org.monkey.d.ruffy.ruffy is the base package identifier
+                // and /.driver.Ruffy the service within the package
+                "org.monkey.d.ruffy.ruffy.driver.Ruffy"));
             context.startService(intent);
 
             ServiceConnection mRuffyServiceConnection = new ServiceConnection() {
+
                 @Override
                 public void onServiceConnected(ComponentName name, IBinder service) {
                     log.debug("ruffy service connected");
@@ -147,6 +158,7 @@ public class RuffyScripter implements RuffyCommands {
                     }
                     started = true;
                 }
+
 
                 @Override
                 public void onServiceDisconnected(ComponentName name) {
@@ -163,15 +175,18 @@ public class RuffyScripter implements RuffyCommands {
         }
     }
 
+
     @Override
     public boolean isPumpAvailable() {
         return started;
     }
 
+
     @Override
     public boolean isPumpBusy() {
         return activeCmd != null;
     }
+
 
     @Override
     public boolean isConnected() {
@@ -188,6 +203,7 @@ public class RuffyScripter implements RuffyCommands {
         }
     }
 
+
     @Override
     public synchronized void disconnect() {
         if (ruffyService == null) {
@@ -196,22 +212,31 @@ public class RuffyScripter implements RuffyCommands {
         try {
             log.debug("Disconnecting");
             ruffyService.doRTDisconnect();
+            try {
+                ComboDataUtil.getInstance().clearErrors();
+            } catch (Exception ex) {
+                log.error("Combo data util problem." + ex.getMessage(), ex);
+            }
         } catch (RemoteException e) {
             // ignore
         } catch (Exception e) {
             log.warn("Disconnect not happy", e);
+            addError(e);
         }
     }
+
 
     @Override
     public CommandResult readPumpState() {
         return runCommand(new ReadPumpStateCommand());
     }
 
+
     @Override
     public CommandResult readQuickInfo(int numberOfBolusRecordsToRetrieve) {
         return runCommand(new ReadQuickInfoCommand(numberOfBolusRecordsToRetrieve));
     }
+
 
     public void returnToRootMenu() {
         // returning to main menu using the 'back' key does not cause a vibration
@@ -225,6 +250,7 @@ public class RuffyScripter implements RuffyCommands {
             menuType = getCurrentMenu().getType();
         }
     }
+
 
     /**
      * Always returns a CommandResult, never throws
@@ -254,19 +280,21 @@ public class RuffyScripter implements RuffyCommands {
                         log.debug("Pump state before running command: " + pumpState);
 
                         // execute the command
-                        cmd.setScripter(RuffyScripter.this);
-                        long cmdStartTime = System.currentTimeMillis();
-                        cmd.execute();
-                        long cmdEndTime = System.currentTimeMillis();
-                        log.debug("Executing " + cmd + " took " + (cmdEndTime - cmdStartTime) + "ms");
-                    } catch (CommandException e) {
-                        log.error("CommandException running command", e);
-                        cmd.getResult().success = false;
-                    } catch (Exception e) {
-                        log.error("Unexpected exception running cmd", e);
-                        cmd.getResult().success = false;
-                    }
-                }, cmd.getClass().getSimpleName());
+                    cmd.setScripter(RuffyScripter.this);
+                    long cmdStartTime = System.currentTimeMillis();
+                    cmd.execute();
+                    long cmdEndTime = System.currentTimeMillis();
+                    log.debug("Executing " + cmd + " took " + (cmdEndTime - cmdStartTime) + "ms");
+                } catch (CommandException e) {
+                    log.error("CommandException running command", e);
+                    addError(e);
+                    cmd.getResult().success = false;
+                } catch (Exception e) {
+                    log.error("Unexpected exception running cmd", e);
+                    addError(e);
+                    cmd.getResult().success = false;
+                }
+            }, cmd.getClass().getSimpleName());
                 long executionStart = System.currentTimeMillis();
                 cmdThread.start();
 
@@ -277,8 +305,8 @@ public class RuffyScripter implements RuffyCommands {
                         // the disconnected and then return the command as failed (the caller
                         // can retry if needed).
                         log.debug("Connection unusable (ruffy connection: " + ruffyService.isConnected() + ", "
-                                + "time since last menu update: " + (System.currentTimeMillis() - menuLastUpdated) + " ms, "
-                                + "aborting command and attempting reconnect ...");
+                            + "time since last menu update: " + (System.currentTimeMillis() - menuLastUpdated)
+                            + " ms, " + "aborting command and attempting reconnect ...");
                         cmdThread.interrupt();
                         activeCmd.getResult().success = false;
 
@@ -328,15 +356,18 @@ public class RuffyScripter implements RuffyCommands {
             } catch (CommandException e) {
                 log.error("CommandException while executing command", e);
                 PumpState pumpState = recoverFromCommandFailure();
+                addError(e);
                 return activeCmd.getResult().success(false).state(pumpState);
             } catch (Exception e) {
                 log.error("Unexpected exception communication with ruffy", e);
                 PumpState pumpState = recoverFromCommandFailure();
+                addError(e);
                 return activeCmd.getResult().success(false).state(pumpState);
             } finally {
                 Menu menu = this.currentMenu;
                 if (activeCmd.getResult().success && menu != null && menu.getType() != MenuType.MAIN_MENU) {
-                    log.warn("Command " + activeCmd + " successful, but finished leaving pump on menu " + getCurrentMenuName());
+                    log.warn("Command " + activeCmd + " successful, but finished leaving pump on menu "
+                        + getCurrentMenuName());
                 }
                 if (cmdThread != null) {
                     try {
@@ -350,6 +381,16 @@ public class RuffyScripter implements RuffyCommands {
             }
         }
     }
+
+
+    private void addError(Exception e) {
+        try {
+            ComboDataUtil.getInstance().addError(e);
+        } catch (Exception ex) {
+            log.error("Combo data util problem." + ex.getMessage(), ex);
+        }
+    }
+
 
     private boolean runPreCommandChecks(Command cmd) {
         if (cmd instanceof ReadPumpStateCommand) {
@@ -382,6 +423,7 @@ public class RuffyScripter implements RuffyCommands {
         }
         return true;
     }
+
 
     /**
      * On connection loss the pump raises an alert immediately (when setting a TBR or giving a bolus) -
@@ -417,6 +459,7 @@ public class RuffyScripter implements RuffyCommands {
         return connected;
     }
 
+
     /**
      * Returns to the main menu (if possible) after a command failure, so that subsequent commands
      * reusing the connection won't fail and returns the current PumpState (empty if unreadable).
@@ -443,6 +486,7 @@ public class RuffyScripter implements RuffyCommands {
             return new PumpState();
         }
     }
+
 
     /**
      * If there's an issue, this times out eventually and throws a CommandException
@@ -481,6 +525,7 @@ public class RuffyScripter implements RuffyCommands {
         }
     }
 
+
     /**
      * This reads the state of the pump, which is whatever is currently displayed on the display,
      * no actions are performed.
@@ -499,9 +544,9 @@ public class RuffyScripter implements RuffyCommands {
         state.menu = menuType.name();
 
         if (menuType == MenuType.MAIN_MENU) {
-            Double tbrPercentage = (Double) menu.getAttribute(MenuAttribute.TBR);
-            BolusType bolusType = (BolusType) menu.getAttribute(MenuAttribute.BOLUS_TYPE);
-            Integer activeBasalRate = (Integer) menu.getAttribute(MenuAttribute.BASAL_SELECTED);
+            Double tbrPercentage = (Double)menu.getAttribute(MenuAttribute.TBR);
+            BolusType bolusType = (BolusType)menu.getAttribute(MenuAttribute.BOLUS_TYPE);
+            Integer activeBasalRate = (Integer)menu.getAttribute(MenuAttribute.BASAL_SELECTED);
 
             if (!activeBasalRate.equals(1)) {
                 state.unsafeUsageDetected = PumpState.UNSUPPORTED_BASAL_RATE_PROFILE;
@@ -509,27 +554,27 @@ public class RuffyScripter implements RuffyCommands {
                 state.unsafeUsageDetected = PumpState.UNSUPPORTED_BOLUS_TYPE;
             } else if (tbrPercentage != null && tbrPercentage != 100) {
                 state.tbrActive = true;
-                Double displayedTbr = (Double) menu.getAttribute(MenuAttribute.TBR);
+                Double displayedTbr = (Double)menu.getAttribute(MenuAttribute.TBR);
                 state.tbrPercent = displayedTbr.intValue();
-                MenuTime durationMenuTime = ((MenuTime) menu.getAttribute(MenuAttribute.RUNTIME));
+                MenuTime durationMenuTime = ((MenuTime)menu.getAttribute(MenuAttribute.RUNTIME));
                 state.tbrRemainingDuration = durationMenuTime.getHour() * 60 + durationMenuTime.getMinute();
             }
             if (menu.attributes().contains(MenuAttribute.BASAL_RATE)) {
-                state.basalRate = ((double) menu.getAttribute(MenuAttribute.BASAL_RATE));
+                state.basalRate = ((double)menu.getAttribute(MenuAttribute.BASAL_RATE));
             }
             if (menu.attributes().contains(MenuAttribute.BATTERY_STATE)) {
-                state.batteryState = ((int) menu.getAttribute(MenuAttribute.BATTERY_STATE));
+                state.batteryState = ((int)menu.getAttribute(MenuAttribute.BATTERY_STATE));
             }
             if (menu.attributes().contains(MenuAttribute.INSULIN_STATE)) {
-                state.insulinState = ((int) menu.getAttribute(MenuAttribute.INSULIN_STATE));
+                state.insulinState = ((int)menu.getAttribute(MenuAttribute.INSULIN_STATE));
             }
             if (menu.attributes().contains(MenuAttribute.TIME)) {
-                MenuTime pumpTime = (MenuTime) menu.getAttribute(MenuAttribute.TIME);
+                MenuTime pumpTime = (MenuTime)menu.getAttribute(MenuAttribute.TIME);
                 Date date = new Date();
                 // infer yesterday as the pump's date if midnight just passed, but the pump is
                 // a bit behind
-                if (date.getHours() == 0 && date.getMinutes() <= 5
-                        && pumpTime.getHour() == 23 && pumpTime.getMinute() >= 55) {
+                if (date.getHours() == 0 && date.getMinutes() <= 5 && pumpTime.getHour() == 23
+                    && pumpTime.getMinute() >= 55) {
                     date.setTime(date.getTime() - 24 * 60 * 60 * 1000);
                 }
                 date.setHours(pumpTime.getHour());
@@ -542,13 +587,13 @@ public class RuffyScripter implements RuffyCommands {
         } else if (menuType == MenuType.STOP) {
             state.suspended = true;
             if (menu.attributes().contains(MenuAttribute.BATTERY_STATE)) {
-                state.batteryState = ((int) menu.getAttribute(MenuAttribute.BATTERY_STATE));
+                state.batteryState = ((int)menu.getAttribute(MenuAttribute.BATTERY_STATE));
             }
             if (menu.attributes().contains(MenuAttribute.INSULIN_STATE)) {
-                state.insulinState = ((int) menu.getAttribute(MenuAttribute.INSULIN_STATE));
+                state.insulinState = ((int)menu.getAttribute(MenuAttribute.INSULIN_STATE));
             }
             if (menu.attributes().contains(MenuAttribute.TIME)) {
-                MenuTime time = (MenuTime) menu.getAttribute(MenuAttribute.TIME);
+                MenuTime time = (MenuTime)menu.getAttribute(MenuAttribute.TIME);
                 Date date = new Date();
                 date.setHours(time.getHour());
                 date.setMinutes(time.getMinute());
@@ -561,32 +606,35 @@ public class RuffyScripter implements RuffyCommands {
         return state;
     }
 
+
     @NonNull
     public WarningOrErrorCode readWarningOrErrorCode() {
         if (currentMenu == null || getCurrentMenu().getType() != MenuType.WARNING_OR_ERROR) {
             return new WarningOrErrorCode(null, null, null);
         }
-        Integer warningCode = (Integer) getCurrentMenu().getAttribute(MenuAttribute.WARNING);
-        Integer errorCode = (Integer) getCurrentMenu().getAttribute(MenuAttribute.ERROR);
+        Integer warningCode = (Integer)getCurrentMenu().getAttribute(MenuAttribute.WARNING);
+        Integer errorCode = (Integer)getCurrentMenu().getAttribute(MenuAttribute.ERROR);
         int retries = 5;
         while (warningCode == null && errorCode == null && retries > 0) {
             waitForScreenUpdate();
-            warningCode = (Integer) getCurrentMenu().getAttribute(MenuAttribute.WARNING);
-            errorCode = (Integer) getCurrentMenu().getAttribute(MenuAttribute.ERROR);
+            warningCode = (Integer)getCurrentMenu().getAttribute(MenuAttribute.WARNING);
+            errorCode = (Integer)getCurrentMenu().getAttribute(MenuAttribute.ERROR);
             retries--;
         }
-        String message = (String) getCurrentMenu().getAttribute(MenuAttribute.MESSAGE);
+        String message = (String)getCurrentMenu().getAttribute(MenuAttribute.MESSAGE);
         return new WarningOrErrorCode(warningCode, errorCode, message);
     }
 
     public static class Key {
-        public static byte NO_KEY = (byte) 0x00;
-        public static byte MENU = (byte) 0x03;
-        public static byte CHECK = (byte) 0x0C;
-        public static byte UP = (byte) 0x30;
-        public static byte DOWN = (byte) 0xC0;
-        public static byte BACK = (byte) 0x33;
+
+        public static byte NO_KEY = (byte)0x00;
+        public static byte MENU = (byte)0x03;
+        public static byte CHECK = (byte)0x0C;
+        public static byte UP = (byte)0x30;
+        public static byte DOWN = (byte)0xC0;
+        public static byte BACK = (byte)0x33;
     }
+
 
     // === pump ops ===
     @NonNull
@@ -601,11 +649,13 @@ public class RuffyScripter implements RuffyCommands {
         return menu;
     }
 
+
     @Nullable
     private String getCurrentMenuName() {
         Menu menu = this.currentMenu;
         return menu != null ? menu.getType().toString() : "<none>";
     }
+
 
     public void pressUpKey() {
         log.debug("Pressing up key");
@@ -613,11 +663,13 @@ public class RuffyScripter implements RuffyCommands {
         log.debug("Releasing up key");
     }
 
+
     public void pressDownKey() {
         log.debug("Pressing down key");
         pressKey(Key.DOWN);
         log.debug("Releasing down key");
     }
+
 
     public void pressCheckKey() {
         log.debug("Pressing check key");
@@ -625,17 +677,20 @@ public class RuffyScripter implements RuffyCommands {
         log.debug("Releasing check key");
     }
 
+
     public void pressMenuKey() {
         log.debug("Pressing menu key");
         pressKey(Key.MENU);
         log.debug("Releasing menu key");
     }
 
+
     private void pressBackKey() {
         log.debug("Pressing back key");
         pressKey(Key.BACK);
         log.debug("Releasing back key");
     }
+
 
     public void pressKeyMs(final byte key, long ms) {
         long stepMs = 100;
@@ -656,6 +711,7 @@ public class RuffyScripter implements RuffyCommands {
         }
     }
 
+
     /**
      * Wait until the menu is updated
      */
@@ -665,12 +721,13 @@ public class RuffyScripter implements RuffyCommands {
         synchronized (screenlock) {
             try {
                 // updates usually come in every ~500, occasionally up to 1100ms
-                screenlock.wait((long) 2000);
+                screenlock.wait((long)2000);
             } catch (InterruptedException e) {
                 throw new CommandException("Interrupted");
             }
         }
     }
+
 
     private void pressKey(final byte key) {
         if (Thread.currentThread().isInterrupted())
@@ -684,6 +741,7 @@ public class RuffyScripter implements RuffyCommands {
         }
     }
 
+
     public void navigateToMenu(MenuType desiredMenu) {
         verifyMenuIsDisplayed(MenuType.MAIN_MENU);
         int moves = 20;
@@ -693,7 +751,7 @@ public class RuffyScripter implements RuffyCommands {
             moves--;
             if (moves == 0) {
                 throw new CommandException("Menu not found searching for " + desiredMenu
-                        + ". Check menu settings on your pump to ensure it's not hidden.");
+                    + ". Check menu settings on your pump to ensure it's not hidden.");
             }
             MenuType next = getCurrentMenu().getType();
             pressMenuKey();
@@ -706,6 +764,7 @@ public class RuffyScripter implements RuffyCommands {
             lastSeenMenu = getCurrentMenu().getType();
         }
     }
+
 
     /**
      * Wait till a menu changed has completed, "away" from the menu provided as argument.
@@ -720,9 +779,11 @@ public class RuffyScripter implements RuffyCommands {
         }
     }
 
+
     public void verifyMenuIsDisplayed(MenuType expectedMenu) {
         verifyMenuIsDisplayed(expectedMenu, null);
     }
+
 
     public void verifyMenuIsDisplayed(MenuType expectedMenu, String failureMessage) {
         int attempts = 5;
@@ -732,12 +793,14 @@ public class RuffyScripter implements RuffyCommands {
                 waitForScreenUpdate();
             } else {
                 if (failureMessage == null) {
-                    failureMessage = "Invalid pump state, expected to be in menu " + expectedMenu + ", but current menu is " + getCurrentMenuName();
+                    failureMessage = "Invalid pump state, expected to be in menu " + expectedMenu
+                        + ", but current menu is " + getCurrentMenuName();
                 }
                 throw new CommandException(failureMessage);
             }
         }
     }
+
 
     public void verifyRootMenuIsDisplayed() {
         int retries = 600;
@@ -746,10 +809,13 @@ public class RuffyScripter implements RuffyCommands {
                 SystemClock.sleep(100);
                 retries = retries - 1;
             } else {
-                throw new CommandException("Invalid pump state, expected to be in menu MAIN or STOP but current menu is " + getCurrentMenuName());
+                throw new CommandException(
+                    "Invalid pump state, expected to be in menu MAIN or STOP but current menu is "
+                        + getCurrentMenuName());
             }
         }
     }
+
 
     @SuppressWarnings("unchecked")
     public <T> T readBlinkingValue(Class<T> expectedType, MenuAttribute attribute) {
@@ -760,65 +826,77 @@ public class RuffyScripter implements RuffyCommands {
             waitForScreenUpdate();
             retries--;
             if (retries == 0) {
-                throw new CommandException("Failed to read blinkng value: " + attribute + "=" + value + " type=" + value);
+                throw new CommandException("Failed to read blinkng value: " + attribute + "=" + value + " type="
+                    + value);
             }
         }
-        return (T) value;
+        return (T)value;
     }
+
 
     @Override
     public CommandResult deliverBolus(double amount, BolusProgressReporter bolusProgressReporter) {
         return runCommand(new BolusCommand(amount, bolusProgressReporter));
     }
 
+
     @Override
     public void cancelBolus() {
         if (activeCmd instanceof BolusCommand) {
-            ((BolusCommand) activeCmd).requestCancellation();
+            ((BolusCommand)activeCmd).requestCancellation();
         } else {
             log.error("cancelBolus called, but active command is not a bolus:" + activeCmd);
         }
     }
+
 
     @Override
     public CommandResult setTbr(int percent, int duration) {
         return runCommand(new SetTbrCommand(percent, duration));
     }
 
+
     @Override
     public CommandResult cancelTbr() {
         return runCommand(new CancelTbrCommand());
     }
+
 
     @Override
     public CommandResult confirmAlert(int warningCode) {
         return runCommand(new ConfirmAlertCommand(warningCode));
     }
 
+
     @Override
     public CommandResult readHistory(PumpHistoryRequest request) {
         return runCommand(new ReadHistoryCommand(request));
     }
+
 
     @Override
     public CommandResult readBasalProfile() {
         return runCommand(new ReadBasalProfileCommand());
     }
 
+
     @Override
     public CommandResult setBasalProfile(BasalProfile basalProfile) {
         return runCommand(new SetBasalProfileCommand(basalProfile));
     }
+
 
     @Override
     public CommandResult getDateAndTime() {
         throw new RuntimeException("Not supported");
     }
 
+
     @Override
     public CommandResult setDateAndTime() {
         throw new RuntimeException("Not supported");
     }
+
 
     /**
      * Confirms and dismisses the given alert if it's raised before the timeout
@@ -834,13 +912,14 @@ public class RuffyScripter implements RuffyCommands {
                 Integer displayedWarningCode = warningOrErrorCode.warningCode;
                 String errorMsg = null;
                 try {
-                    errorMsg = (String) getCurrentMenu().getAttribute(MenuAttribute.MESSAGE);
+                    errorMsg = (String)getCurrentMenu().getAttribute(MenuAttribute.MESSAGE);
                 } catch (Exception e) {
                     // ignore
                 }
                 if (!Objects.equals(displayedWarningCode, warningCode)) {
-                    throw new CommandException("An alert other than the expected warning " + warningCode + " was raised by the pump: "
-                            + displayedWarningCode + "(" + errorMsg + "). Please check the pump.");
+                    throw new CommandException("An alert other than the expected warning " + warningCode
+                        + " was raised by the pump: " + displayedWarningCode + "(" + errorMsg
+                        + "). Please check the pump.");
                 }
 
                 // confirm alert
@@ -857,8 +936,8 @@ public class RuffyScripter implements RuffyCommands {
                 // when a command returns
                 WarningOrErrorCode displayedWarning = readWarningOrErrorCode();
                 while (Objects.equals(displayedWarning.warningCode, warningCode)) {
-                   waitForScreenUpdate();
-                   displayedWarning = readWarningOrErrorCode();
+                    waitForScreenUpdate();
+                    displayedWarning = readWarningOrErrorCode();
                 }
                 return true;
             }
